@@ -1,33 +1,32 @@
 openapi: 3.1.0
 info:
-  title: Smart Campus — Lab 02 Contract Template
+  title: Smart Campus — IoT Ingestion API (A1)
   version: 1.0.0
   description: |
-    Hợp đồng API mẫu cho Lab 02.
-    Sinh viên cần sửa lại title, description, path, schema và example theo cặp đàm phán thực tế.
+    API dành cho các thiết bị cảm biến (Hardware IoT) đẩy dữ liệu lên hệ thống IoT Ingestion (A1).
+    Hệ thống sẽ tiếp nhận, kiểm tra dữ liệu và sau đó đẩy vào Message Broker cho Analytics và Core Business xử lý.
   contact:
-    name: FIT4110 Teaching Team
-    email: fit4110@example.edu.vn
+    name: Nhóm A1 - IoT Ingestion
 servers:
   - url: http://localhost:4010
     description: Prism mock server
-  - url: https://api.campus.local
-    description: Class network placeholder
+  - url: https://api.campus.local/iot
+    description: Production Server
 tags:
   - name: health
-    description: Kiểm tra trạng thái service
-  - name: alerts
-    description: Quản lý cảnh báo Smart Campus
-  - name: events
-    description: Quản lý sự kiện nghiệp vụ
+    description: Kiểm tra trạng thái gateway
+  - name: telemetry
+    description: Tiếp nhận dữ liệu đo lường từ thiết bị
+  - name: devices
+    description: Quản lý trạng thái thiết bị
 security:
   - bearerAuth: []
 paths:
   /health:
     get:
       operationId: getHealth
-      summary: Kiểm tra trạng thái service
-      description: Endpoint kiểm tra service còn hoạt động.
+      summary: Kiểm tra trạng thái IoT Gateway
+      description: Endpoint để các hệ thống monitor kiểm tra Gateway còn sống không.
       tags: [health]
       security: []
       responses:
@@ -41,228 +40,98 @@ paths:
                 ok:
                   value:
                     status: ok
-                    service: lab02-contract-template
-                    time: '2026-05-10T08:00:00Z'
+                    service: iot-ingestion-gateway
+                    time: '2026-05-24T08:00:00Z'
 
-  /alerts:
+  /telemetry:
     post:
-      operationId: createAlert
-      summary: Tạo cảnh báo mới
-      description: |
-        Endpoint mẫu để Provider nhận yêu cầu tạo cảnh báo từ Consumer.
-        Sinh viên cần sửa theo cặp đàm phán thực tế.
-      tags: [alerts]
+      operationId: ingestTelemetry
+      summary: Đẩy dữ liệu đo lường
+      description: Thiết bị IoT gọi API này để gửi dữ liệu nhiệt độ, độ ẩm (Sử dụng đa hình đa dạng loại cảm biến).
+      tags: [telemetry]
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/CreateAlertRequest'
+              $ref: '#/components/schemas/TelemetryPayload'
             examples:
-              unauthorizedAccess:
+              tempReading:
                 value:
-                  sourceService: core-business
-                  alertType: UNAUTHORIZED_ACCESS
-                  severity: HIGH
-                  message: Phát hiện truy cập trái phép tại cổng chính
-                  relatedEventId: 0196fb3d-4ad7-7d1e-9f49-5d5148d2babc
+                  deviceId: SENSOR-T-001
+                  metricType: TEMPERATURE
+                  value: 36.5
+                  unit: celsius
+                  batteryLevel: 85
+              smokeReading:
+                value:
+                  deviceId: SENSOR-S-002
+                  metricType: SMOKE
+                  smokeLevel: 450
+                  isAlarm: true
       responses:
-        '201':
-          description: Cảnh báo đã được tạo
-          headers:
-            Location:
-              description: URI của alert vừa tạo.
-              schema:
-                type: string
-                format: uri
+        '202':
+          description: Dữ liệu đã được tiếp nhận và đưa vào hàng đợi
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Alert'
-              examples:
-                created:
-                  value:
-                    id: 0196fb3d-4ad7-7d1e-9f49-5d5148d2babc
-                    sourceService: core-business
-                    alertType: UNAUTHORIZED_ACCESS
-                    severity: HIGH
-                    message: Phát hiện truy cập trái phép tại cổng chính
-                    relatedEventId: 0196fb3d-4ad7-7d1e-9f49-5d5148d2babc
-                    status: OPEN
-                    createdAt: '2026-05-10T08:00:00Z'
-                    resolvedAt: null
+                $ref: '#/components/schemas/IngestResponse'
         '400':
           $ref: '#/components/responses/BadRequest'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '422':
           $ref: '#/components/responses/UnprocessableEntity'
-        '500':
-          $ref: '#/components/responses/InternalServerError'
 
-    get:
-      operationId: listAlerts
-      summary: Lấy danh sách cảnh báo
-      description: Lấy danh sách cảnh báo với cursor-based pagination.
-      tags: [alerts]
+  /devices/{deviceId}/status:
+    post:
+      operationId: updateDeviceStatus
+      summary: Cập nhật trạng thái thiết bị
+      description: Báo cáo trạng thái online, offline hoặc sắp hết pin.
+      tags: [devices]
       parameters:
-        - $ref: '#/components/parameters/Cursor'
-        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/DeviceId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DeviceStatusUpdate'
       responses:
         '200':
-          description: Danh sách cảnh báo
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/AlertPage'
-              examples:
-                firstPage:
-                  value:
-                    items:
-                      - id: 0196fb3d-4ad7-7d1e-9f49-5d5148d2babc
-                        sourceService: core-business
-                        alertType: UNAUTHORIZED_ACCESS
-                        severity: HIGH
-                        message: Phát hiện truy cập trái phép tại cổng chính
-                        relatedEventId: 0196fb3d-4ad7-7d1e-9f49-5d5148d2babc
-                        status: OPEN
-                        createdAt: '2026-05-10T08:00:00Z'
-                        resolvedAt: null
-                    nextCursor: null
-                    hasMore: false
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '500':
-          $ref: '#/components/responses/InternalServerError'
-
-  /alerts/recent:
-    get:
-      operationId: getRecentAlerts
-      summary: Lấy các cảnh báo gần đây
-      description: Endpoint mẫu cho cặp Analytics ↔ Core Business hoặc Frontend ↔ Core Business.
-      tags: [alerts]
-      parameters:
-        - name: limit
-          in: query
-          required: false
-          description: Số cảnh báo tối đa cần lấy.
-          schema:
-            type: integer
-            minimum: 1
-            maximum: 100
-            default: 20
-      responses:
-        '200':
-          description: Danh sách cảnh báo gần đây
-          content:
-            application/json:
-              schema:
-                type: object
-                additionalProperties: false
-                required: [items]
-                properties:
-                  items:
-                    type: array
-                    minItems: 0
-                    maxItems: 100
-                    items:
-                      $ref: '#/components/schemas/Alert'
-              examples:
-                recentAlerts:
-                  value:
-                    items: []
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '500':
-          $ref: '#/components/responses/InternalServerError'
-
-  /alerts/{alertId}:
-    get:
-      operationId: getAlertById
-      summary: Lấy chi tiết một cảnh báo
-      description: Lấy chi tiết alert theo UUID.
-      tags: [alerts]
-      parameters:
-        - $ref: '#/components/parameters/AlertId'
-      responses:
-        '200':
-          description: Chi tiết cảnh báo
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Alert'
+          description: Đã cập nhật trạng thái
+        '400':
+          $ref: '#/components/responses/BadRequest'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '404':
           $ref: '#/components/responses/NotFound'
-        '500':
-          $ref: '#/components/responses/InternalServerError'
 
-  /events:
-    post:
-      operationId: createCampusEvent
-      summary: Gửi sự kiện nghiệp vụ vào hệ thống
-      description: |
-        Endpoint minh họa polymorphism. Event có thể là SensorEvent hoặc AccessEvent.
-      tags: [events]
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/CampusEvent'
-            examples:
-              sensorEvent:
-                value:
-                  eventType: SENSOR_READING
-                  eventId: 0196fb3d-4ad7-7d1e-9f49-5d5148d2babc
-                  deviceId: SENSOR-001
-                  metric: temperature
-                  value: 38.5
-                  unit: celsius
-                  timestamp: '2026-05-10T08:00:00Z'
-              accessEvent:
-                value:
-                  eventType: ACCESS_CHECK
-                  eventId: 0196fb3d-4ad7-7d1e-9f49-5d5148d2babd
-                  gateId: GATE-01
-                  cardId: RFID-2026-001
-                  decision: ALLOW
-                  timestamp: '2026-05-10T08:01:00Z'
+  /telemetry/latest:
+    get:
+      operationId: getLatestTelemetry
+      summary: Lấy dữ liệu cảm biến gần nhất
+      description: API hỗ trợ cho việc debug xem thiết bị vừa gửi lên cái gì.
+      tags: [telemetry]
+      parameters:
+        - name: deviceId
+          in: query
+          required: true
+          description: Mã thiết bị.
+          schema:
+            type: string
+            pattern: '^[A-Z0-9-]+$'
       responses:
-        '201':
-          description: Event đã được ghi nhận
+        '200':
+          description: Trả về bản ghi mới nhất
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/EventAccepted'
-        '400':
-          $ref: '#/components/responses/BadRequest'
+                $ref: '#/components/schemas/TelemetryPayload'
         '401':
           $ref: '#/components/responses/Unauthorized'
-        '409':
-          $ref: '#/components/responses/Conflict'
-        '422':
-          $ref: '#/components/responses/UnprocessableEntity'
-
-webhooks:
-  alertCreated:
-    post:
-      operationId: onAlertCreated
-      summary: Webhook khi có alert mới
-      description: Provider phát sự kiện khi một cảnh báo mới được tạo.
-      tags: [alerts]
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/Alert'
-      responses:
-        '200':
-          description: Consumer đã nhận webhook
+        '404':
+          $ref: '#/components/responses/NotFound'
 
 components:
   securitySchemes:
@@ -272,33 +141,14 @@ components:
       bearerFormat: JWT
 
   parameters:
-    AlertId:
-      name: alertId
+    DeviceId:
+      name: deviceId
       in: path
       required: true
-      description: UUID của cảnh báo.
+      description: Mã định danh của cảm biến.
       schema:
         type: string
-        format: uuid
-    Cursor:
-      name: cursor
-      in: query
-      required: false
-      description: Cursor dùng để lấy trang tiếp theo.
-      schema:
-        type: [string, 'null']
-        minLength: 1
-        maxLength: 200
-    Limit:
-      name: limit
-      in: query
-      required: false
-      description: Số item tối đa mỗi trang.
-      schema:
-        type: integer
-        minimum: 1
-        maximum: 100
-        default: 20
+        pattern: '^[A-Z0-9-]+$'
 
   schemas:
     HealthStatus:
@@ -308,204 +158,93 @@ components:
       properties:
         status:
           type: string
-          enum: [ok]
-          description: Trạng thái service.
-          example: ok
+          enum: ["ok"]
         service:
           type: string
-          minLength: 2
-          maxLength: 80
-          description: Tên service.
-          example: lab02-contract-template
         time:
           type: string
           format: date-time
-          description: Thời điểm kiểm tra.
-          example: '2026-05-10T08:00:00Z'
 
-    CreateAlertRequest:
-      type: object
-      additionalProperties: false
-      required: [sourceService, alertType, severity, message]
-      properties:
-        sourceService:
-          type: string
-          minLength: 2
-          maxLength: 80
-          pattern: '^[a-z0-9-]+$'
-          description: Service tạo alert.
-          example: core-business
-        alertType:
-          type: string
-          enum: [UNAUTHORIZED_ACCESS, SENSOR_THRESHOLD_EXCEEDED, UNKNOWN_PERSON, SYSTEM_ERROR]
-          description: Loại cảnh báo.
-          example: UNAUTHORIZED_ACCESS
-        severity:
-          $ref: '#/components/schemas/AlertSeverity'
-        message:
-          type: string
-          minLength: 5
-          maxLength: 500
-          description: Nội dung cảnh báo.
-          example: Phát hiện truy cập trái phép tại cổng chính
-        relatedEventId:
-          type: [string, 'null']
-          format: uuid
-          description: Event liên quan, có thể null nếu chưa có event id.
-          example: 0196fb3d-4ad7-7d1e-9f49-5d5148d2babc
-
-    Alert:
-      allOf:
-        - $ref: '#/components/schemas/CreateAlertRequest'
-        - type: object
-          additionalProperties: false
-          required: [id, status, createdAt, resolvedAt]
-          properties:
-            id:
-              type: string
-              format: uuid
-              description: UUID của alert.
-              example: 0196fb3d-4ad7-7d1e-9f49-5d5148d2babc
-            status:
-              type: string
-              enum: [OPEN, ACKNOWLEDGED, RESOLVED]
-              description: Trạng thái xử lý alert.
-              example: OPEN
-            createdAt:
-              type: string
-              format: date-time
-              description: Thời điểm tạo alert.
-              example: '2026-05-10T08:00:00Z'
-            resolvedAt:
-              type: [string, 'null']
-              format: date-time
-              description: Thời điểm xử lý xong, null nếu chưa xử lý.
-              example: null
-
-    AlertSeverity:
-      type: string
-      enum: [LOW, MEDIUM, HIGH, CRITICAL]
-      description: Mức độ nghiêm trọng của cảnh báo.
-      example: HIGH
-
-    AlertPage:
-      type: object
-      additionalProperties: false
-      required: [items, nextCursor, hasMore]
-      properties:
-        items:
-          type: array
-          minItems: 0
-          maxItems: 100
-          items:
-            $ref: '#/components/schemas/Alert'
-        nextCursor:
-          type: [string, 'null']
-          description: Cursor trang tiếp theo, null nếu hết dữ liệu.
-          example: null
-        hasMore:
-          type: boolean
-          description: Còn dữ liệu ở trang sau hay không.
-          example: false
-
-    CampusEvent:
+    TelemetryPayload:
       oneOf:
-        - $ref: '#/components/schemas/SensorEvent'
-        - $ref: '#/components/schemas/AccessEvent'
+        - $ref: '#/components/schemas/TemperatureReading'
+        - $ref: '#/components/schemas/SmokeReading'
       discriminator:
-        propertyName: eventType
+        propertyName: metricType
         mapping:
-          SENSOR_READING: '#/components/schemas/SensorEvent'
-          ACCESS_CHECK: '#/components/schemas/AccessEvent'
+          TEMPERATURE: '#/components/schemas/TemperatureReading'
+          SMOKE: '#/components/schemas/SmokeReading'
 
-    SensorEvent:
+    BaseReading:
       type: object
-      additionalProperties: false
-      required: [eventType, eventId, deviceId, metric, value, unit, timestamp]
+      required: [deviceId, metricType]
       properties:
-        eventType:
-          type: string
-          const: SENSOR_READING
-          description: Loại event.
-          example: SENSOR_READING
-        eventId:
-          type: string
-          format: uuid
-          description: UUID của event.
         deviceId:
           type: string
-          pattern: '^SENSOR-[0-9]{3}$'
-          description: Mã thiết bị cảm biến.
-          example: SENSOR-001
-        metric:
+          pattern: '^[A-Z0-9-]+$'
+        metricType:
           type: string
-          enum: [temperature, humidity, smoke, motion]
-          description: Loại chỉ số cảm biến.
-          example: temperature
-        value:
-          type: number
-          minimum: -100
-          maximum: 1000
-          description: Giá trị đo được.
-          example: 38.5
-        unit:
-          type: string
-          minLength: 1
-          maxLength: 20
-          description: Đơn vị đo.
-          example: celsius
-        timestamp:
-          type: string
-          format: date-time
-          description: Thời điểm đo.
+        batteryLevel:
+          type: [number, "null"]
+          description: Phần trăm pin còn lại (union type với null nếu cắm điện trực tiếp).
+          minimum: 0
+          maximum: 100
 
-    AccessEvent:
+    TemperatureReading:
+      allOf:
+        - $ref: '#/components/schemas/BaseReading'
+        - type: object
+          required: [value, unit]
+          properties:
+            metricType:
+              type: string
+              const: TEMPERATURE
+            value:
+              type: number
+            unit:
+              type: string
+              enum: ["celsius", "fahrenheit"]
+
+    SmokeReading:
+      allOf:
+        - $ref: '#/components/schemas/BaseReading'
+        - type: object
+          required: [smokeLevel, isAlarm]
+          properties:
+            metricType:
+              type: string
+              const: SMOKE
+            smokeLevel:
+              type: number
+              description: Nồng độ khói
+            isAlarm:
+              type: boolean
+
+    DeviceStatusUpdate:
       type: object
       additionalProperties: false
-      required: [eventType, eventId, gateId, cardId, decision, timestamp]
+      required: [status]
       properties:
-        eventType:
+        status:
           type: string
-          const: ACCESS_CHECK
-          description: Loại event.
-          example: ACCESS_CHECK
-        eventId:
-          type: string
-          format: uuid
-          description: UUID của event.
-        gateId:
-          type: string
-          pattern: '^GATE-[0-9]{2}$'
-          description: Mã cổng.
-          example: GATE-01
-        cardId:
-          type: string
-          pattern: '^RFID-[0-9]{4}-[0-9]{3}$'
-          description: Mã thẻ RFID.
-          example: RFID-2026-001
-        decision:
-          type: string
-          enum: [ALLOW, DENY]
-          description: Quyết định truy cập.
-          example: ALLOW
-        timestamp:
-          type: string
-          format: date-time
-          description: Thời điểm kiểm tra.
+          enum: ["ONLINE", "OFFLINE", "MAINTENANCE"]
+        errorCode:
+          type: [string, "null"]
+          description: Mã lỗi nếu thiết bị bị hỏng.
+        batteryLevel:
+          type: [number, "null"]
 
-    EventAccepted:
+    IngestResponse:
       type: object
       additionalProperties: false
-      required: [eventId, acceptedAt]
+      required: [eventId, status]
       properties:
         eventId:
           type: string
           format: uuid
-          description: UUID của event được nhận.
-        acceptedAt:
+        status:
           type: string
-          format: date-time
-          description: Thời điểm hệ thống ghi nhận event.
+          enum: ["ACCEPTED"]
 
     Problem:
       type: object
@@ -515,54 +254,17 @@ components:
         type:
           type: string
           format: uri
-          description: URI định danh loại lỗi.
-          example: https://campus.local/errors/validation
         title:
           type: string
-          minLength: 3
-          maxLength: 120
-          description: Tiêu đề lỗi ngắn gọn.
-          example: Dữ liệu không hợp lệ
         status:
           type: integer
           minimum: 400
           maximum: 599
-          description: HTTP status code.
-          example: 400
         detail:
-          type: [string, 'null']
-          maxLength: 500
-          description: Mô tả chi tiết lỗi.
-          example: Field cardId không đúng định dạng
+          type: [string, "null"]
         instance:
-          type: [string, 'null']
+          type: [string, "null"]
           format: uri
-          description: URI của request gây lỗi.
-          example: /alerts
-        errors:
-          type: array
-          minItems: 0
-          maxItems: 50
-          items:
-            type: object
-            additionalProperties: false
-            required: [field, code, message]
-            properties:
-              field:
-                type: string
-                minLength: 1
-                maxLength: 80
-                example: cardId
-              code:
-                type: string
-                minLength: 2
-                maxLength: 80
-                example: PATTERN_MISMATCH
-              message:
-                type: string
-                minLength: 3
-                maxLength: 200
-                example: cardId phải có dạng RFID-YYYY-NNN
 
   responses:
     BadRequest:
@@ -571,61 +273,20 @@ components:
         application/problem+json:
           schema:
             $ref: '#/components/schemas/Problem'
-          example:
-            type: https://campus.local/errors/validation
-            title: Dữ liệu không hợp lệ
-            status: 400
-            detail: Payload không đúng JSON Schema
-            instance: /alerts
-            errors:
-              - field: alertType
-                code: ENUM_MISMATCH
-                message: alertType không nằm trong danh sách cho phép
-
     Unauthorized:
-      description: Thiếu hoặc sai thông tin xác thực
+      description: Lỗi xác thực
       content:
         application/problem+json:
           schema:
             $ref: '#/components/schemas/Problem'
-          example:
-            type: https://campus.local/errors/unauthorized
-            title: Chưa xác thực
-            status: 401
-            detail: Thiếu Bearer token
-            instance: /alerts/recent
-            errors: []
-
-    Forbidden:
-      description: Không có quyền thực hiện thao tác
-      content:
-        application/problem+json:
-          schema:
-            $ref: '#/components/schemas/Problem'
-
     NotFound:
-      description: Resource không tồn tại
+      description: Không tìm thấy tài nguyên
       content:
         application/problem+json:
           schema:
             $ref: '#/components/schemas/Problem'
-
-    Conflict:
-      description: Xung đột nghiệp vụ hoặc trùng idempotency key
-      content:
-        application/problem+json:
-          schema:
-            $ref: '#/components/schemas/Problem'
-
     UnprocessableEntity:
-      description: Payload đúng định dạng nhưng không hợp lệ về nghiệp vụ
-      content:
-        application/problem+json:
-          schema:
-            $ref: '#/components/schemas/Problem'
-
-    InternalServerError:
-      description: Lỗi không mong muốn phía server
+      description: Dữ liệu đúng cấu trúc JSON nhưng sai logic nghiệp vụ
       content:
         application/problem+json:
           schema:
