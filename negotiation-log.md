@@ -57,6 +57,30 @@
 
 ---
 
+## Issue #5
+
+- Raised by: Consumer (A5)
+- Endpoint: Schema `TelemetryPayload` (đa hình cảm biến)
+- Concern: A5 phải xử lý nhiều loại cảm biến khác nhau (nhiệt độ, khói, và có thể thêm loại mới sau này). Nếu dùng một schema phẳng với tất cả field optional thì A5 không biết field nào bắt buộc cho từng loại, dễ tính toán sai.
+- Proposal: Dùng `oneOf` kết hợp `discriminator: metricType` để mỗi loại cảm biến có schema riêng (TemperatureReading, SmokeReading), field bắt buộc rõ ràng cho từng loại.
+- Resolution: Accepted
+- Rationale: `discriminator` giúp cả hai bên validate chặt theo từng loại và A5 route được logic xử lý theo `metricType` mà không cần đoán. Khi thêm cảm biến mới chỉ cần bổ sung một nhánh `oneOf` + một mapping, không phá vỡ contract cũ.
+- Impact: `TelemetryPayload` chuyển sang dạng `oneOf` + `discriminator`. A5 phải bỏ qua (và cảnh báo) các `metricType` chưa có trong mapping thay vì crash.
+
+---
+
+## Issue #6
+
+- Raised by: Provider (A1)
+- Endpoint: Trường `batteryLevel` và định dạng response lỗi
+- Concern: Một số thiết bị cắm điện trực tiếp không có pin nên không thể gửi `batteryLevel`. Đồng thời hai bên chưa thống nhất định dạng response lỗi 4xx/5xx, dễ dẫn tới mỗi service tự chế một kiểu body lỗi khác nhau.
+- Proposal: (1) `batteryLevel` dùng union type với `null` (`type: [number, "null"]`) để biểu diễn "không áp dụng"; (2) mọi lỗi 4xx/5xx trả về theo chuẩn `Problem Details` (`application/problem+json`).
+- Resolution: Accepted
+- Rationale: OpenAPI 3.1 hỗ trợ union type với `null` nên không cần `nullable: true` (vốn bị cấm bởi `campus-spectral.yaml`). Chuẩn `Problem Details` (RFC 9457) giúp A5 phân loại lỗi nhất quán bằng `type`/`title`/`status`/`detail`.
+- Impact: Thêm schema `Problem` dùng chung cho BadRequest/Unauthorized/NotFound/UnprocessableEntity. A5 chỉ cần một bộ xử lý lỗi duy nhất; `batteryLevel: null` được hiểu là "thiết bị không dùng pin".
+
+---
+
 # Chốt hợp đồng v1.0
 
 Provider sign-off: Đại diện Nhóm A1  

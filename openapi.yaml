@@ -128,6 +128,14 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/TelemetryPayload'
+              examples:
+                latestTemp:
+                  value:
+                    deviceId: SENSOR-T-001
+                    metricType: TEMPERATURE
+                    value: 36.5
+                    unit: celsius
+                    batteryLevel: 85
         '401':
           $ref: '#/components/responses/Unauthorized'
         '404':
