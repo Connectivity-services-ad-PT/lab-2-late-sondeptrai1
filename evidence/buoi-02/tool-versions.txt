@@ -1,0 +1,13 @@
+# Tool versions
+
+## Node
+v24.15.0
+
+## npm
+11.12.1
+
+## Spectral (@stoplight/spectral-cli via npx)
+6.11.1
+
+## Prism (@stoplight/prism-cli via npx)
+5.14.2
