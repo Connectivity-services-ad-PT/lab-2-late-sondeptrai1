@@ -1,0 +1,15 @@
+$ curl -i -X GET http://127.0.0.1:4010/vision/detections/77507a16-82bc-44c3-8105-a7a2195362d6 \
+  -H "Authorization: Bearer test-token"
+
+HTTP/1.1 200 OK
+Access-Control-Allow-Origin: *
+Access-Control-Allow-Headers: *
+Access-Control-Allow-Credentials: true
+Access-Control-Expose-Headers: *
+Content-type: application/json
+Content-Length: 298
+Date: Sat, 20 Jun 2026 05:53:22 GMT
+Connection: keep-alive
+Keep-Alive: timeout=5
+
+{"detectionId":"65ed20f2-0168-4d06-9b6f-1d0e2cf1f9a9","status":"COMPLETED","objects":[{"label":"person","confidence":0.92,"boundingBox":{"x":0.12,"y":0.23,"width":0.36,"height":0.54}}],"riskLevel":"HIGH","confidence":0.92,"modelVersion":"v2.3.1","receivedAt":"2026-06-20T09:00:01Z","analyzedAt":"2026-06-20T09:00:01Z"}

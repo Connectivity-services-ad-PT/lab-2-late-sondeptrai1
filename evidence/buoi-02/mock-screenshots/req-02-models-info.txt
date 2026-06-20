@@ -1,0 +1,12 @@
+﻿HTTP/1.1 200 OK
+Access-Control-Allow-Origin: *
+Access-Control-Allow-Headers: *
+Access-Control-Allow-Credentials: true
+Access-Control-Expose-Headers: *
+Content-type: application/json
+Content-Length: 167
+Date: Sat, 20 Jun 2026 05:53:21 GMT
+Connection: keep-alive
+Keep-Alive: timeout=5
+
+{"modelId":"ai-vision-2026","modelName":"CampusMotionDetector","version":"v2.3.1","supportedFormats":["image/jpeg","image/png"],"lastTrainedAt":"2026-06-10T22:00:00Z"}

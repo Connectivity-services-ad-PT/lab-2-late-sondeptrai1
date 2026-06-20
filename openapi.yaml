@@ -1,0 +1,556 @@
+﻿openapi: 3.1.0
+info:
+  title: Smart Campus Camera → AI Vision API
+  version: 1.0.0
+  description: |
+    OpenAPI contract for Camera Stream consumer calling AI Vision provider.
+    REST sync endpoint để gửi frame hoặc metadata khi phát hiện motion.
+  contact:
+    name: FIT4110 Lab 02 Team
+    email: fit4110@example.edu.vn
+servers:
+  - url: http://localhost:4010
+    description: Local Prism mock server
+  - url: https://api.smartcampus.local
+    description: Campus production placeholder
+tags:
+  - name: health
+    description: Health check endpoints
+  - name: vision
+    description: AI Vision detection API
+security:
+  - bearerAuth: []
+paths:
+  /health:
+    get:
+      operationId: getHealth
+      summary: Kiểm tra trạng thái dịch vụ
+      description: Endpoint kiểm tra service còn hoạt động.
+      tags: [health]
+      security: []
+      responses:
+        '200':
+          description: Service đang hoạt động
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthStatus'
+              examples:
+                ok:
+                  value:
+                    status: ok
+                    service: ai-vision
+                    time: '2026-06-20T09:00:00Z'
+
+  /vision/detect:
+    post:
+      operationId: createVisionDetection
+      summary: Gửi frame hoặc metadata tới AI Vision
+      description: |
+        Consumer gửi payload khi camera phát hiện chuyển động.
+        Provider trả detectionId và kết quả đánh giá ban đầu.
+      tags: [vision]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VisionDetectRequest'
+            examples:
+              framePayload:
+                value:
+                  requestId: 27f4c569-5b3e-4b1d-9e9c-4c6dd991d839
+                  sourceService: camera-stream
+                  timestamp: '2026-06-20T09:00:00Z'
+                  payload:
+                    payloadType: IMAGE_FRAME
+                    cameraId: CAMERA-001
+                    imageBase64: iVBORw0KGgoAAAANSUhEUgAA...
+                    width: 1280
+                    height: 720
+                    timestamp: '2026-06-20T09:00:00Z'
+              metadataPayload:
+                value:
+                  requestId: 8ab28f42-0dde-4b8f-8f2d-bb3131b9d76a
+                  sourceService: camera-stream
+                  timestamp: '2026-06-20T09:01:00Z'
+                  payload:
+                    payloadType: IMAGE_METADATA
+                    cameraId: CAMERA-002
+                    imageUrl: https://campus.local/camera/002/frame/2026-06-20T090100Z.jpg
+                    motionRegion: top-right
+                    timestamp: '2026-06-20T09:01:00Z'
+      responses:
+        '201':
+          description: Detection result created
+          headers:
+            Location:
+              description: URI của tài nguyên detection
+              schema:
+                type: string
+                format: uri
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VisionDetectResponse'
+              examples:
+                created:
+                  value:
+                    detectionId: 65ed20f2-0168-4d06-9b6f-1d0e2cf1f9a9
+                    status: COMPLETED
+                    objects:
+                      - label: person
+                        confidence: 0.92
+                        boundingBox:
+                          x: 0.12
+                          y: 0.23
+                          width: 0.36
+                          height: 0.54
+                    riskLevel: HIGH
+                    confidence: 0.92
+                    modelVersion: v2.3.1
+                    receivedAt: '2026-06-20T09:00:01Z'
+                    analyzedAt: '2026-06-20T09:00:01Z'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /vision/detections/{detectionId}:
+    get:
+      operationId: getVisionDetection
+      summary: Lấy kết quả detection theo detectionId
+      description: Consumer polling kết quả nếu yêu cầu xử lý async hoặc cần xác nhận chi tiết.
+      tags: [vision]
+      parameters:
+        - $ref: '#/components/parameters/DetectionId'
+      responses:
+        '200':
+          description: Chi tiết detection
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VisionDetection'
+              examples:
+                result:
+                  value:
+                    detectionId: 65ed20f2-0168-4d06-9b6f-1d0e2cf1f9a9
+                    status: COMPLETED
+                    objects:
+                      - label: person
+                        confidence: 0.92
+                        boundingBox:
+                          x: 0.12
+                          y: 0.23
+                          width: 0.36
+                          height: 0.54
+                    riskLevel: HIGH
+                    confidence: 0.92
+                    modelVersion: v2.3.1
+                    receivedAt: '2026-06-20T09:00:01Z'
+                    analyzedAt: '2026-06-20T09:00:01Z'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /vision/models/info:
+    get:
+      operationId: getVisionModelInfo
+      summary: Lấy thông tin model AI Vision đang dùng
+      description: Consumer dùng endpoint này để kiểm tra phiên bản model và khả năng hỗ trợ.
+      tags: [vision]
+      responses:
+        '200':
+          description: Thông tin model
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ModelInfo'
+              examples:
+                currentModel:
+                  value:
+                    modelId: ai-vision-2026
+                    modelName: CampusMotionDetector
+                    version: v2.3.1
+                    supportedFormats: [image/jpeg, image/png]
+                    lastTrainedAt: '2026-06-10T22:00:00Z'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  parameters:
+    DetectionId:
+      name: detectionId
+      in: path
+      required: true
+      description: UUID của detection result.
+      schema:
+        type: string
+        format: uuid
+
+  schemas:
+    HealthStatus:
+      type: object
+      additionalProperties: false
+      required: [status, service, time]
+      properties:
+        status:
+          type: string
+          enum: [ok]
+          description: Trạng thái dịch vụ.
+        service:
+          type: string
+          description: Tên dịch vụ.
+        time:
+          type: string
+          format: date-time
+          description: Thời điểm kiểm tra.
+
+    VisionDetectRequest:
+      type: object
+      additionalProperties: false
+      required: [requestId, sourceService, timestamp, payload]
+      properties:
+        requestId:
+          type: string
+          format: uuid
+          description: UUID duy nhất cho request để tránh duplicate.
+        sourceService:
+          type: string
+          pattern: '^[a-z0-9-]+$'
+          description: Tên service gửi request.
+        timestamp:
+          type: string
+          format: date-time
+          description: Thời điểm camera phát hiện motion.
+        payload:
+          $ref: '#/components/schemas/VisionPayload'
+
+    VisionPayload:
+      oneOf:
+        - $ref: '#/components/schemas/ImageFrame'
+        - $ref: '#/components/schemas/ImageMetadata'
+      discriminator:
+        propertyName: payloadType
+        mapping:
+          IMAGE_FRAME: '#/components/schemas/ImageFrame'
+          IMAGE_METADATA: '#/components/schemas/ImageMetadata'
+
+    ImageFrame:
+      type: object
+      additionalProperties: false
+      required: [payloadType, cameraId, imageBase64, width, height, timestamp]
+      properties:
+        payloadType:
+          type: string
+          const: IMAGE_FRAME
+          description: Loại payload gửi cả hình ảnh mã hóa.
+        cameraId:
+          type: string
+          pattern: '^CAMERA-[0-9]{3}$'
+          description: Mã camera.
+        imageBase64:
+          type: string
+          description: Ảnh được mã hóa Base64.
+        width:
+          type: integer
+          minimum: 1
+          description: Chiều ngang ảnh.
+        height:
+          type: integer
+          minimum: 1
+          description: Chiều dọc ảnh.
+        timestamp:
+          type: string
+          format: date-time
+          description: Thời điểm chụp ảnh.
+
+    ImageMetadata:
+      type: object
+      additionalProperties: false
+      required: [payloadType, cameraId, imageUrl, timestamp]
+      properties:
+        payloadType:
+          type: string
+          const: IMAGE_METADATA
+          description: Loại payload gửi metadata thay vì ảnh.
+        cameraId:
+          type: string
+          pattern: '^CAMERA-[0-9]{3}$'
+          description: Mã camera.
+        imageUrl:
+          type: string
+          format: uri
+          description: URL ảnh trên hệ thống camera.
+        motionRegion:
+          type: [string, 'null']
+          description: Vùng motion nếu có, null khi không xác định.
+          example: top-right
+        timestamp:
+          type: string
+          format: date-time
+          description: Thời điểm motion được phát hiện.
+
+    VisionDetectResponse:
+      type: object
+      additionalProperties: false
+      required: [detectionId, status, objects, riskLevel, receivedAt, analyzedAt]
+      properties:
+        detectionId:
+          type: string
+          format: uuid
+          description: UUID của detection.
+        status:
+          type: string
+          enum: [PENDING, COMPLETED, FAILED]
+          description: Trạng thái xử lý detection.
+        objects:
+          type: array
+          minItems: 0
+          items:
+            $ref: '#/components/schemas/DetectedObject'
+        riskLevel:
+          type: string
+          enum: [LOW, MEDIUM, HIGH, CRITICAL]
+          description: Đánh giá mức độ rủi ro.
+        confidence:
+          type: [number, 'null']
+          minimum: 0
+          maximum: 1
+          description: Độ tin cậy tổng thể, null nếu chưa sẵn sàng.
+        modelVersion:
+          type: string
+          description: Phiên bản model dùng phân tích.
+        receivedAt:
+          type: string
+          format: date-time
+          description: Thời điểm request được nhận.
+        analyzedAt:
+          type: string
+          format: date-time
+          description: Thời điểm chúng tôi hoàn tất phân tích.
+
+    VisionDetection:
+      type: object
+      additionalProperties: false
+      required: [detectionId, status, objects, riskLevel, modelVersion]
+      properties:
+        detectionId:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum: [PENDING, COMPLETED, FAILED]
+        objects:
+          type: array
+          minItems: 0
+          items:
+            $ref: '#/components/schemas/DetectedObject'
+        riskLevel:
+          type: string
+          enum: [LOW, MEDIUM, HIGH, CRITICAL]
+        confidence:
+          type: [number, 'null']
+          minimum: 0
+          maximum: 1
+        modelVersion:
+          type: string
+        receivedAt:
+          type: string
+          format: date-time
+        analyzedAt:
+          type: string
+          format: date-time
+        detail:
+          type: [string, 'null']
+          description: Thông tin phụ nếu detection failed.
+
+    DetectedObject:
+      type: object
+      additionalProperties: false
+      required: [label, confidence, boundingBox]
+      properties:
+        label:
+          type: string
+          description: Nhãn đối tượng được phát hiện.
+        confidence:
+          type: [number, 'null']
+          minimum: 0
+          maximum: 1
+          description: Mức độ tin cậy của đối tượng.
+        boundingBox:
+          $ref: '#/components/schemas/BoundingBox'
+
+    BoundingBox:
+      type: object
+      additionalProperties: false
+      required: [x, y, width, height]
+      properties:
+        x:
+          type: number
+          minimum: 0
+          maximum: 1
+          description: Tỷ lệ X của góc trái trên.
+        y:
+          type: number
+          minimum: 0
+          maximum: 1
+          description: Tỷ lệ Y của góc trái trên.
+        width:
+          type: number
+          minimum: 0
+          maximum: 1
+          description: Chiều rộng bounding box.
+        height:
+          type: number
+          minimum: 0
+          maximum: 1
+          description: Chiều cao bounding box.
+
+    ModelInfo:
+      type: object
+      additionalProperties: false
+      required: [modelId, modelName, version, supportedFormats, lastTrainedAt]
+      properties:
+        modelId:
+          type: string
+          description: Định danh model.
+        modelName:
+          type: string
+        version:
+          type: string
+        supportedFormats:
+          type: array
+          items:
+            type: string
+          minItems: 1
+        lastTrainedAt:
+          type: string
+          format: date-time
+          description: Thời điểm huấn luyện model gần nhất.
+
+    Problem:
+      type: object
+      additionalProperties: false
+      required: [type, title, status]
+      properties:
+        type:
+          type: string
+          format: uri
+          description: URI định danh loại lỗi.
+        title:
+          type: string
+          minLength: 3
+          maxLength: 120
+        status:
+          type: integer
+          minimum: 400
+          maximum: 599
+        detail:
+          type: [string, 'null']
+          description: Mô tả chi tiết lỗi.
+        instance:
+          type: [string, 'null']
+          format: uri
+          description: URI của request gây lỗi.
+        errors:
+          type: array
+          items:
+            type: object
+            additionalProperties: false
+            required: [field, code, message]
+            properties:
+              field:
+                type: string
+              code:
+                type: string
+              message:
+                type: string
+
+  responses:
+    BadRequest:
+      description: Payload không hợp lệ
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+          example:
+            type: https://campus.local/errors/validation
+            title: Dữ liệu không hợp lệ
+            status: 400
+            detail: requestId hoặc payloadType thiếu
+            instance: https://api.smartcampus.local/vision/detect
+            errors:
+              - field: payload.payloadType
+                code: REQUIRED
+                message: payloadType là bắt buộc
+
+    Unauthorized:
+      description: Thiếu xác thực
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+          example:
+            type: https://campus.local/errors/unauthorized
+            title: Chưa xác thực
+            status: 401
+            detail: Bearer token thiếu hoặc không hợp lệ
+            instance: https://api.smartcampus.local/vision/detect
+            errors: []
+
+    Forbidden:
+      description: Không có quyền truy cập
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+
+    NotFound:
+      description: Không tìm thấy detection
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+
+    Conflict:
+      description: Xung đột duplicate request
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+
+    UnprocessableEntity:
+      description: Vi phạm nghiệp vụ
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+
+    InternalServerError:
+      description: Lỗi server
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'

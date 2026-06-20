@@ -1,0 +1,17 @@
+$ curl -i -X POST http://127.0.0.1:4010/vision/detect \
+  -H "Authorization: Bearer test-token" \
+  -H "Content-Type: application/json" \
+  -d '{"imageUrl":"http://camera.local/frame001.jpg","timestamp":"2026-06-20T10:00:00Z"}'
+
+HTTP/1.1 201 Created
+Access-Control-Allow-Origin: *
+Access-Control-Allow-Headers: *
+Access-Control-Allow-Credentials: true
+Access-Control-Expose-Headers: *
+Content-type: application/json
+Content-Length: 142
+Date: Sat, 20 Jun 2026 05:53:23 GMT
+Connection: keep-alive
+Keep-Alive: timeout=5
+
+{"detectionRequestId":"req-2026-06-20-001","status":"QUEUED","message":"Phát hiện được hàng đợi cho xử lý","estimatedWaitTime":"5s"}

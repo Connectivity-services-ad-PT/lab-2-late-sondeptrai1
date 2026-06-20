@@ -1,0 +1,12 @@
+﻿HTTP/1.1 200 OK
+Access-Control-Allow-Origin: *
+Access-Control-Allow-Headers: *
+Access-Control-Allow-Credentials: true
+Access-Control-Expose-Headers: *
+Content-type: application/json
+Content-Length: 67
+Date: Sat, 20 Jun 2026 05:53:21 GMT
+Connection: keep-alive
+Keep-Alive: timeout=5
+
+{"status":"ok","service":"ai-vision","time":"2026-06-20T09:00:00Z"}
